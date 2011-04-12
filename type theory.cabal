@@ -1,0 +1,9 @@
+name:           type theory
+version:        0.1
+cabal-version:  >= 1.2
+
+library
+  hs-source-dirs:  src
+  build-depends:   base
+  other-modules:   Untyped
+
