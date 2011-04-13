@@ -15,8 +15,9 @@ languagedef = haskellDef {P.reservedNames   = ["lam","."],
 parseTerm :: Parser Term
 parseTerm =  (parens parseTerm)
          <|> parseTmVar
-         <|> parseTmAbs 
          <|> parseTmApp
+         <|> parseTmAbs 
+
          
 parseTmVar :: Parser Term
 parseTmVar = do varname <- identifier
@@ -34,14 +35,14 @@ parseTmApp = do tm1 <- parseTerm
                 tm2 <- parseTerm
                 return (TmApp tm1 tm2) 
                 
-parseLines :: Parser [Term]
-parseLines = semiSep1 parseTerm
+program :: Parser [Term]
+program = semiSep1 parseTerm
 
-parseFile :: Parser a -> Parser a 
-parseFile p = do whiteSpace
-                 x <- p
-                 eof
-                 return x
+fileOf :: Parser a -> Parser a 
+fileOf p = do whiteSpace
+              x <- p
+              eof
+              return x
 
 -- the lexer 
 lexer       = P.makeTokenParser languagedef  
@@ -53,13 +54,7 @@ identifier  = P.identifier lexer
 reserved    = P.reserved lexer
 semiSep1    = P.semiSep1 lexer
 whiteSpace  = P.whiteSpace lexer
-
-parseSource :: Parser a -> String -> Either ParseError a
-parseSource p input
-        = parse p "(unknown)" input
-        
-parseSourceFile p input = parseSource (parseFile p) input
                           
 fileAST :: String -> IO (Either ParseError [Term])
 fileAST path = do source <- readFile path
-                  return (parseSource parseLines source)
+                  return (parse (fileOf program) path source)
