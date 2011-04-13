@@ -1,39 +1,31 @@
-
 module FPParser where
 import SyntaxTree 
 
 import Text.ParserCombinators.Parsec
-import Text.Parsec.Token
-import Text.Parsec.Language
+import qualified Text.Parsec.Token as P
+import Text.Parsec.Language 
+
+languagedef = haskellDef {P.reservedNames   = ["lam","."],
+                          P.reservedOpNames = []
+                          }
 
 
--- these two statements basically do the same thing as a parametarized module apparently
-def = haskellDef {reservedNames   = ["lam","."],
-                  reservedOpNames = []
-                 }
-
-TokenParser{parens = m_parens,
-            identifier = m_identifier,
-            reservedOp = m_reservedOp,
-            reserved = m_reserved,
-            semiSep1 = m_semiSep1,
-            whiteSpace = m_whiteSpace }  = makeTokenParser def
-
+-- the parser
      
 parseTerm :: Parser Term
-parseTerm =  (m_parens parseTerm)
+parseTerm =  (parens parseTerm)
          <|> parseTmVar
          <|> parseTmAbs 
          <|> parseTmApp
          
 parseTmVar :: Parser Term
-parseTmVar = do varname <- m_identifier
+parseTmVar = do varname <- identifier
                 return (TmVar varname)
          
 parseTmAbs :: Parser Term      
-parseTmAbs = do m_reserved "lam"
-                varname <- m_identifier
-                m_reserved "."
+parseTmAbs = do reserved "lam"
+                varname <- identifier
+                reserved "."
                 body <- parseTerm
                 return (TmAbs varname body)
 
@@ -42,7 +34,32 @@ parseTmApp = do tm1 <- parseTerm
                 tm2 <- parseTerm
                 return (TmApp tm1 tm2) 
                 
-parseFile :: Parser [Term]
-parseFile = m_whiteSpace >>
-            (m_semiSep1 parseTerm)
-   
+parseLines :: Parser [Term]
+parseLines = semiSep1 parseTerm
+
+parseFile :: Parser a -> Parser a 
+parseFile p = do whiteSpace
+                 x <- p
+                 eof
+                 return x
+
+-- the lexer 
+lexer       = P.makeTokenParser languagedef  
+
+-- this is basically a substitute for parametarized modules
+parens      = P.parens lexer
+braces      = P.braces lexer
+identifier  = P.identifier lexer
+reserved    = P.reserved lexer
+semiSep1    = P.semiSep1 lexer
+whiteSpace  = P.whiteSpace lexer
+
+parseSource :: Parser a -> String -> Either ParseError a
+parseSource p input
+        = parse p "(unknown)" input
+        
+parseSourceFile p input = parseSource (parseFile p) input
+                          
+fileAST :: String -> IO (Either ParseError [Term])
+fileAST path = do source <- readFile path
+                  return (parseSource parseLines source)
