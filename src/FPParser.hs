@@ -13,12 +13,13 @@ languagedef = haskellDef {P.reservedNames   = ["lam","."],
 -- the parser
      
 parseTerm :: Parser Term
-parseTerm =  (parens parseTerm)
-         <|> parseTmVar
-         <|> parseTmApp
-         <|> parseTmAbs 
-
+parseTerm = do (try parseTmApp)
+         <|> parseAtom 
          
+parseAtom = do parseTmVar
+         <|> (parens parseTerm)
+         <|> parseTmAbs         
+                          
 parseTmVar :: Parser Term
 parseTmVar = do varname <- identifier
                 return (TmVar varname)
@@ -31,8 +32,8 @@ parseTmAbs = do reserved "lam"
                 return (TmAbs varname body)
 
 parseTmApp :: Parser Term
-parseTmApp = do tm1 <- parseTerm
-                tm2 <- parseTerm
+parseTmApp = do tm1 <- parseAtom
+                tm2 <- parseAtom
                 return (TmApp tm1 tm2) 
                 
 program :: Parser [Term]
@@ -44,6 +45,8 @@ fileOf p = do whiteSpace
               eof
               return x
 
+
+
 -- the lexer 
 lexer       = P.makeTokenParser languagedef  
 
@@ -54,7 +57,12 @@ identifier  = P.identifier lexer
 reserved    = P.reserved lexer
 semiSep1    = P.semiSep1 lexer
 whiteSpace  = P.whiteSpace lexer
+
+
                           
-fileAST :: String -> IO (Either ParseError [Term])
-fileAST path = do source <- readFile path
-                  return (parse (fileOf program) path source)
+untypedAST :: String -> IO (Either ParseError [Term])
+untypedAST = parseFile program
+                  
+parseFile :: Parser a -> String -> IO (Either ParseError a)
+parseFile parser path = do source <- readFile path
+                           return (parse (fileOf parser) path source)
